@@ -1,0 +1,18 @@
+# Optional local gateway when you do not already have the www.bytego.team nginx.
+#   docker compose -f docker-compose.huabu.yml -f docker-compose.huabu.gateway.yml up -d --build
+# Then open http://localhost:8080/huabu/
+
+services:
+  gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${HUABU_PORT:-8080}:80"
+    environment:
+      NEW_API_UPSTREAM: ${NEW_API_UPSTREAM:-http://host.docker.internal:3000}
+    volumes:
+      - ./deploy/nginx-gateway.conf.template:/etc/nginx/templates/default.conf.template:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - canvas

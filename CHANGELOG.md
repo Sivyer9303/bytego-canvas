@@ -2,6 +2,8 @@
 
 ## Unreleased
 
++ [新增] 生产环境以 `/huabu/` 子路径挂载时，会复用同域 new-api 登录态，自动同步站内 API 密钥为画布渠道并拉取模型；本地开发默认不强制登录。
++ [新增] 可用 `docker compose -f docker-compose.huabu.yml up -d` 在主站拉取 `ghcr.io/sivyer9303/bytego-canvas:huabu`；主站 nginx 需增加 `/huabu/` 反代，从站不用改。
 + [修复] 文档站默认英文路径不再因内部语言重写产生重定向循环。
 + [优化] 文档站移动端折叠菜单新增分类切换入口，桌面端增加随滚动高亮的本页目录。
 + [优化] 画布左侧元素列表按组展示树形层级，组内节点支持展开和收起。

@@ -1,0 +1,21 @@
+# 主站画布。服务器只需这一份文件，不必再 clone 源码。
+#
+#   docker compose -f docker-compose.huabu.yml up -d
+#
+# 镜像：ghcr.io/sivyer9303/bytego-canvas:huabu（main 推送后由 GitHub Actions 构建）。
+# 主站 nginx 仍需加一次 /huabu/（deploy/nginx-www.bytego.team.conf）。从站不用改。
+
+services:
+  canvas:
+    image: ghcr.io/sivyer9303/bytego-canvas:huabu
+    container_name: canvas
+    restart: unless-stopped
+    expose:
+      - "3000"
+    networks:
+      - newapi
+
+networks:
+  newapi:
+    name: proxy_newapi-network
+    external: true

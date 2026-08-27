@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { Tooltip } from "antd";
-import { BookOpen, Keyboard, Puzzle, Settings2 } from "lucide-react";
+import { BookOpen, Keyboard, LogOut, Puzzle, Settings2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
@@ -8,9 +8,12 @@ import { GitHubLink } from "@/components/layout/github-link";
 import { VersionReleaseModal } from "@/components/layout/version-release-modal";
 import { DOCS_URL } from "@/constant/env";
 import { changeAppLocale, type AppLocale } from "@/i18n";
+import { isNewApiAuthEnabled } from "@/integrations/new-api/enabled";
 import { cn } from "@/lib/utils";
 import { canvasThemes } from "@/lib/canvas-theme";
+import { logoutNewApiSession, redirectToNewApiSignIn } from "@/services/api/new-api";
 import { useConfigStore } from "@/stores/use-config-store";
+import { useNewApiSessionStore } from "@/stores/use-new-api-session-store";
 import { useThemeStore } from "@/stores/use-theme-store";
 
 type UserStatusActionsProps = {
@@ -34,6 +37,9 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
     const locale = i18n.resolvedLanguage as AppLocale;
     const nextLocale = locale === "zh-CN" ? "en-US" : "zh-CN";
     const languageLabel = t("topNav.switchLanguage", { language: t(nextLocale === "zh-CN" ? "locale.zhCN" : "locale.enUS") });
+    const newApiUser = useNewApiSessionStore((state) => state.user);
+    const newApiAccessToken = useNewApiSessionStore((state) => state.accessToken);
+    const displayName = newApiUser?.display_name?.trim() || newApiUser?.username || "";
 
     return (
         <div className="inline-flex shrink-0 items-center gap-1">
@@ -58,6 +64,27 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
             <AnimatedThemeToggler theme={theme} onThemeChange={setTheme} className={naturalIconClass} style={iconStyle} aria-label={t(theme === "dark" ? "topNav.lightTheme" : "topNav.darkTheme")} title={t(theme === "dark" ? "topNav.lightTheme" : "topNav.darkTheme")} />
             <VersionReleaseModal style={versionStyle} />
             <GitHubLink className={cn("bg-transparent hover:bg-transparent dark:hover:bg-transparent", gitHubClassName)} style={gitHubStyle} />
+            {isNewApiAuthEnabled() && newApiAccessToken ? (
+                <>
+                    {displayName ? (
+                        <span className="hidden max-w-28 truncate px-1 text-xs text-stone-500 md:inline dark:text-stone-400" title={displayName}>
+                            {displayName}
+                        </span>
+                    ) : null}
+                    <button
+                        type="button"
+                        className={naturalIconClass}
+                        style={iconStyle}
+                        onClick={() => {
+                            void logoutNewApiSession().finally(() => redirectToNewApiSignIn());
+                        }}
+                        aria-label={t("newApi.logout")}
+                        title={t("newApi.logout")}
+                    >
+                        <LogOut className="size-4" />
+                    </button>
+                </>
+            ) : null}
             {onOpenShortcuts ? (
                 <button type="button" className={naturalIconClass} style={iconStyle} onClick={onOpenShortcuts} aria-label={t("topNav.shortcuts")} title={t("topNav.shortcuts")}>
                     <Keyboard className="size-4" />

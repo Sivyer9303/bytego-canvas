@@ -14,9 +14,16 @@ sanitize_id() {
 GA4_ID=$(sanitize_id "${ANALYTICS_GA4_ID:-}")
 BAIDU_ID=$(sanitize_id "${ANALYTICS_BAIDU_ID:-}")
 
-cat > /usr/share/nginx/html/config.js <<EOF
+write_config() {
+    cat > "$1" <<EOF
 window.__RUNTIME_CONFIG__ = {
   ANALYTICS_GA4_ID: "${GA4_ID}",
   ANALYTICS_BAIDU_ID: "${BAIDU_ID}"
 };
 EOF
+}
+
+write_config /usr/share/nginx/html/config.js
+if [ -f /usr/share/nginx/html/huabu/index.html ]; then
+    write_config /usr/share/nginx/html/huabu/config.js
+fi

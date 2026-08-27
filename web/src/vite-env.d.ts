@@ -11,4 +11,6 @@ interface ImportMetaEnv {
     readonly VITE_ANALYTICS_GA4_ID?: string;
     // Baidu Analytics site ID
     readonly VITE_ANALYTICS_BAIDU_ID?: string;
+    // Force new-api cookie refresh even when Vite base is `/` (local same-origin proxy).
+    readonly VITE_NEWAPI_AUTH?: string;
 }

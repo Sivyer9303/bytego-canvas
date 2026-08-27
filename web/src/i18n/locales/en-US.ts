@@ -330,6 +330,12 @@ export default {
         lightTheme: "Switch to light theme",
         darkTheme: "Switch to dark theme",
     },
+    newApi: {
+        bootstrapping: "Syncing account…",
+        syncFailed: "Failed to sync API keys. Refresh the page and try again.",
+        noTokens: "This account has no enabled API keys. Create one in the console first.",
+        logout: "Sign out",
+    },
     home: {
         promptError: "Failed to load prompts",
         description: "Generate, connect, and reshape <content>images, text, and graphics</content> in <canvas>Infinite Canvas</canvas>, turning one-off generations into a continuous creative process.",

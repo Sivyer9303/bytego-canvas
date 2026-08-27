@@ -10,7 +10,12 @@ const webDir = dirname(fileURLToPath(import.meta.url));
 const localVersion = readFileSync(resolve(webDir, "../VERSION"), "utf8").trim() || "dev";
 const localChangelog = readFileSync(resolve(webDir, "../CHANGELOG.md"), "utf8");
 
-// Expose /plugins/index.json with local plugin files from public/plugins.
+function viteBasePath() {
+    const base = process.env.VITE_BASE || "/";
+    return base.endsWith("/") ? base : `${base}/`;
+}
+
+// Expose plugins/index.json with local plugin files from public/plugins.
 // The frontend can discover and list them when enabled; development reads the directory live, while builds emit a static registry.
 function localPluginsManifest(): Plugin {
     const pluginsDir = resolve(webDir, "public/plugins");
@@ -19,19 +24,23 @@ function localPluginsManifest(): Plugin {
             return readdirSync(pluginsDir)
                 .filter((file) => file.endsWith(".js"))
                 .sort()
-                .map((file) => `/plugins/${file}`);
+                .map((file) => `${viteBasePath()}plugins/${file}`);
         } catch {
             return [];
         }
     };
+    const serveIndex: Plugin["configureServer"] = (server) => {
+        const handler = (_req: unknown, res: { setHeader: (name: string, value: string) => void; end: (body: string) => void }) => {
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify(listLocalPlugins()));
+        };
+        const indexPath = `${viteBasePath()}plugins/index.json`;
+        server.middlewares.use(indexPath, handler);
+        if (indexPath !== "/plugins/index.json") server.middlewares.use("/plugins/index.json", handler);
+    };
     return {
         name: "local-plugins-manifest",
-        configureServer(server) {
-            server.middlewares.use("/plugins/index.json", (_req, res) => {
-                res.setHeader("Content-Type", "application/json");
-                res.end(JSON.stringify(listLocalPlugins()));
-            });
-        },
+        configureServer: serveIndex,
         generateBundle() {
             this.emitFile({ type: "asset", fileName: "plugins/index.json", source: JSON.stringify(listLocalPlugins()) });
         },
