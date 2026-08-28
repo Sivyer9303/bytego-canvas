@@ -16,6 +16,7 @@ export type NewApiToken = {
     id: number;
     name: string;
     status: number;
+    group?: string;
 };
 
 type RefreshData = {

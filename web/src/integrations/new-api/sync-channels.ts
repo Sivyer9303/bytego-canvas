@@ -1,10 +1,11 @@
 import { fetchChannelModels } from "@/services/api/image";
 import { fetchNewApiTokenKeys, listEnabledNewApiTokens } from "@/services/api/new-api";
 import { isNewApiChannelId, newApiChannelId } from "@/integrations/new-api/enabled";
+import { capabilityForGroup } from "@/integrations/new-api/group-capability";
+import { useNewApiSessionStore } from "@/stores/use-new-api-session-store";
 import {
     createModelChannel,
     encodeChannelModel,
-    guessCapability,
     modelMatchesCapability,
     modelOptionsFromChannels,
     normalizeModelOptionValue,
@@ -14,7 +15,7 @@ import {
     type ModelChannel,
 } from "@/stores/use-config-store";
 
-function mergeChannelModels(existing: ChannelModel[], names: string[]) {
+function mergeChannelModels(existing: ChannelModel[], names: string[], capability: ModelCapability) {
     const previous = new Map(existing.map((model) => [model.name, model]));
     const next: ChannelModel[] = [];
     const seen = new Set<string>();
@@ -22,10 +23,10 @@ function mergeChannelModels(existing: ChannelModel[], names: string[]) {
         const trimmed = name.trim();
         if (!trimmed || seen.has(trimmed)) continue;
         seen.add(trimmed);
-        next.push(previous.get(trimmed) || { name: trimmed, capability: guessCapability(trimmed) });
+        next.push({ name: trimmed, capability, script: previous.get(trimmed)?.script });
     }
     for (const model of existing) {
-        if (!seen.has(model.name)) next.push(model);
+        if (!seen.has(model.name)) next.push({ ...model, capability });
     }
     return next;
 }
@@ -41,12 +42,16 @@ function pickModel(channels: ModelChannel[], current: string, capability: ModelC
     return normalized || "";
 }
 
-async function modelsForChannel(channel: ModelChannel) {
+async function modelsForChannel(channel: ModelChannel, capability: ModelCapability) {
     try {
-        return mergeChannelModels(channel.models, await fetchChannelModels(channel));
+        return mergeChannelModels(channel.models, await fetchChannelModels(channel), capability);
     } catch {
-        return channel.models;
+        return channel.models.map((model) => ({ ...model, capability }));
     }
+}
+
+function tokenGroup(token: { group?: string }) {
+    return token.group?.trim() || useNewApiSessionStore.getState().user?.group?.trim() || "";
 }
 
 export async function syncNewApiTokensToChannels(accessToken: string) {
@@ -56,24 +61,30 @@ export async function syncNewApiTokensToChannels(accessToken: string) {
     const origin = window.location.origin;
     const existing = useConfigStore.getState().config.channels;
     const existingById = new Map(existing.map((channel) => [channel.id, channel]));
-    const synced: ModelChannel[] = tokens.flatMap((token) => {
+    const synced = tokens.flatMap((token) => {
         const apiKey = keys[token.id];
         if (!apiKey) return [];
         const id = newApiChannelId(token.id);
         const previous = existingById.get(id);
         return [
-            createModelChannel({
-                id,
-                name: token.name?.trim() || previous?.name || `Token ${token.id}`,
-                baseUrl: origin,
-                apiKey,
-                apiFormat: "openai",
-                models: previous?.models || [],
-            }),
+            {
+                capability: capabilityForGroup(tokenGroup(token)),
+                channel: createModelChannel({
+                    id,
+                    name: token.name?.trim() || previous?.name || `Token ${token.id}`,
+                    baseUrl: origin,
+                    apiKey,
+                    apiFormat: "openai",
+                    models: previous?.models || [],
+                }),
+            },
         ];
     });
     const withModels = await Promise.all(
-        synced.map(async (channel) => ({ ...channel, models: await modelsForChannel(channel) })),
+        synced.map(async ({ channel, capability }) => ({
+            ...channel,
+            models: await modelsForChannel(channel, capability),
+        })),
     );
     const nextChannels = [
         ...existing.filter((channel) => !isNewApiChannelId(channel.id) && !shouldDropUnusedDefault(channel, withModels.length > 0)),

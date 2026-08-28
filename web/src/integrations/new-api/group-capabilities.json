@@ -1,0 +1,15 @@
+{
+  "image": [
+    "gpt-image-2",
+    "gpt-image-2-adobe",
+    "grok-image"
+  ],
+  "video": [
+    "Wan3.0",
+    "grok_视频",
+    "minimax_视频",
+    "seedance_国内版",
+    "seedance_海外版",
+    "seedance_海外满血版"
+  ]
+}

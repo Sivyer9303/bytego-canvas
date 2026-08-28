@@ -4,6 +4,7 @@ export type NewApiUser = {
     id: number;
     username: string;
     display_name?: string;
+    group?: string;
 };
 
 type NewApiSessionState = {

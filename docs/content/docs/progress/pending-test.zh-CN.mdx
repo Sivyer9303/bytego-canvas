@@ -87,6 +87,6 @@ description: 当前版本已实现但仍需人工验证的变更项
 - Agent 消息区分：用户消息应在右侧使用透明无气泡排版，AI 回复应在左侧使用无头像的开放式 Markdown 排版；长文本、多张附件、错误消息及浅色/深色主题下均应清晰且不溢出。
 - Agent 命令记录：命令执行中应显示运行状态；完成后，同一轮相邻命令应合并为「已执行 N 条命令」折叠行且默认不显示原始命令，单条展开后直接显示完整详情，多条展开后可分别查看命令、输出和退出状态；对话结束或刷新后分组与记录不应消失。
 - 跨域提示：生图、视频或音频请求被浏览器跨域策略拦截时，应明确提示需要通过自己的服务转发请求，不再只显示笼统的网络错误。
-- new-api `/huabu/` 部署：本地 `bun run dev` 仍应无需登录即可打开。生产构建 `bun run build:huabu` 挂在 `https://www.bytego.team/huabu/` 时，未登录应跳转 `/sign-in?redirect=/huabu/…`，登录后复用控制台 refresh Cookie，按启用的 Token 各建一条渠道并拉取 `/v1/models`，用户改过的模型能力与脚本应保留。退出登录应回到 `/sign-in`。挂载路径不要使用 `/canvas/`。
+- new-api `/huabu/` 部署：本地 `bun run dev` 仍应无需登录即可打开。生产构建 `bun run build:huabu` 挂在 `https://www.bytego.team/huabu/` 时，未登录应跳转 `/sign-in?redirect=/huabu/…`，登录后复用控制台 refresh Cookie，按启用的 Token 各建一条渠道并拉取 `/v1/models`。模型用途按令牌分组对照表设定：`gpt-image-2`、`gpt-image-2-adobe`、`grok-image` 为图片；`Wan3.0`、`grok_视频`、`minimax_视频`、`seedance_国内版`、`seedance_海外版`、`seedance_海外满血版` 为视频；其余分组为文本。偏好设置里的默认图片/视频/文本下拉应与分组一致，不再把视频模型放进默认文本。用户改过的调用脚本应保留。退出登录应回到 `/sign-in`。挂载路径不要使用 `/canvas/`。
 - 主站 nginx 必须用 `^~ /huabu/` 反代到 `canvas` 容器。GitHub Actions 发布 `ghcr.io/sivyer9303/bytego-canvas:huabu` 后，主站只需 `docker compose -f docker-compose.huabu.yml up -d`，不必再 clone 源码。从站 www 继续转到主站即可。
 Canvas Agent 配置权限
