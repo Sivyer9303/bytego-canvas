@@ -1,7 +1,7 @@
 export default {
     meta: {
-        title: "Infinite Canvas",
-        description: "An infinite canvas creation tool",
+        title: "Bytego Canvas",
+        description: "A Bytego canvas creation tool",
     },
     theme: { toggle: "Toggle theme" },
     common: {
@@ -203,9 +203,9 @@ export default {
         empty: "No video generated yet",
     },
     canvas: {
-        defaultTitle: "Infinite Canvas {{count}}",
+        defaultTitle: "Bytego Canvas {{count}}",
         library: "Canvas library",
-        title: "Infinite Canvas",
+        title: "Bytego Canvas",
         imported: "Imported {{count}} canvases",
         importFailed: "Import failed. Select a valid canvas package.",
         opening: "Opening canvas...",
@@ -249,7 +249,7 @@ export default {
             select: "Select {{name}}", stats: "{{nodes}} nodes · {{connections}} connections", updated: "Updated {{date}}", saveName: "Save name", cancelRename: "Cancel rename", export: "Export", rename: "Rename", delete: "Delete",
             deleteTitle: "Delete canvases?", deleteDescription: "This will delete {{count}} canvases along with their nodes and connections.",
         },
-        export: { defaultProjectName: "Infinite Canvas", defaultNodesName: "Canvas elements", item: "Element" },
+        export: { defaultProjectName: "Bytego Canvas", defaultNodesName: "Canvas elements", item: "Element" },
         createMenu: {
             fromNode: "Generate from this node", close: "Close", text: "Generate text", textDescription: "Scripts, ad copy, and brand content", image: "Generate image", video: "Generate video", audio: "Audio reference", config: "Configuration node", configDescription: "Model, size, count, and input order", select: "Select a node",
         },
@@ -341,7 +341,7 @@ export default {
     },
     home: {
         promptError: "Failed to load prompts",
-        description: "Generate, connect, and reshape <content>images, text, and graphics</content> in <canvas>Infinite Canvas</canvas>, turning one-off generations into a continuous creative process.",
+        description: "Generate, connect, and reshape <content>images, text, and graphics</content> in <canvas>Bytego Canvas</canvas>, turning one-off generations into a continuous creative process.",
         start: "Get started",
         openCanvas: "Open canvas",
         showcaseTitle: "Keep every great result",

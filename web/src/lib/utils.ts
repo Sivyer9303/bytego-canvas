@@ -17,7 +17,7 @@ export function randomId(): string {
     return nanoid();
 }
 
-/** Resolve a public file against Vite `base` (e.g. `/huabu/logo.svg`). */
+/** Resolve a public file against Vite `base` (e.g. `/huabu/logo.png`). */
 export function publicAsset(path: string) {
     return `${import.meta.env.BASE_URL || "/"}${path.replace(/^\//, "")}`;
 }
