@@ -8,6 +8,8 @@ import { ModelPicker } from "@/components/model-picker";
 import { ChannelEditorDrawer } from "@/components/layout/channel-editor-drawer";
 import { ConfigPromptSources } from "@/components/layout/config-prompt-sources";
 import { ConfigLocalStorage } from "@/components/layout/config-local-storage";
+import { isNewApiAuthEnabled } from "@/integrations/new-api/enabled";
+import { syncNewApiTokensNow } from "@/integrations/new-api/bootstrap";
 import type { AppLocale } from "@/i18n";
 import { exportAppConfig, importAppConfig } from "@/services/config-file";
 import { syncAppDataToWebdav, type AppSyncDomainKey, type AppSyncProgressEvent } from "@/services/app-sync";
@@ -54,6 +56,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
     const [editingChannelId, setEditingChannelId] = useState("");
     const [testingWebdav, setTestingWebdav] = useState(false);
     const [syncingWebdav, setSyncingWebdav] = useState(false);
+    const [syncingNewApi, setSyncingNewApi] = useState(false);
     const [webdavSyncStatus, setWebdavSyncStatus] = useState("");
     const [webdavDomainProgress, setWebdavDomainProgress] = useState(createWebdavDomainProgress);
     const config = useConfigStore((state) => state.config);
@@ -109,6 +112,20 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
 
     const saveChannel = (channel: ModelChannel) => {
         updateChannels(config.channels.map((item) => (item.id === channel.id ? channel : item)));
+    };
+
+    const syncNewApi = async () => {
+        setSyncingNewApi(true);
+        try {
+            const result = await syncNewApiTokensNow();
+            if (result.tokenCount === 0) message.warning(t("newApi.noTokens"));
+            else message.success(t("newApi.synced", { count: result.channelCount }));
+        } catch (error) {
+            if (error instanceof Error && error.message === "signed out") return;
+            message.error(error instanceof Error ? error.message : t("newApi.syncFailed"));
+        } finally {
+            setSyncingNewApi(false);
+        }
     };
 
     const testWebdav = async () => {
@@ -185,10 +202,17 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                         children: (
                             <div>
                                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                                    <div className="text-xs text-stone-500">{t("config.channels.description")}</div>
-                                    <Button type="primary" icon={<Plus className="size-4" />} onClick={addChannel}>
-                                        {t("config.channels.add")}
-                                    </Button>
+                                    <div className="text-xs text-stone-500">{isNewApiAuthEnabled() ? t("newApi.syncKeysHint") : t("config.channels.description")}</div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {isNewApiAuthEnabled() ? (
+                                            <Button icon={<RefreshCw className="size-4" />} loading={syncingNewApi} onClick={() => void syncNewApi()}>
+                                                {t("newApi.syncKeys")}
+                                            </Button>
+                                        ) : null}
+                                        <Button type="primary" icon={<Plus className="size-4" />} onClick={addChannel}>
+                                            {t("config.channels.add")}
+                                        </Button>
+                                    </div>
                                 </div>
                                 <div className="space-y-2">
                                     {config.channels.map((channel) => (

@@ -91,7 +91,22 @@ export async function syncNewApiTokensToChannels(accessToken: string) {
         ...withModels,
     ];
     applyChannels(nextChannels, origin);
+    rememberSyncedUser();
     return { tokenCount: tokens.length, channelCount: withModels.length };
+}
+
+export function hasCachedNewApiChannels() {
+    const channels = useConfigStore.getState().config.channels;
+    const cached = channels.some((channel) => isNewApiChannelId(channel.id) && channel.apiKey.trim());
+    if (!cached) return false;
+    const userId = useNewApiSessionStore.getState().user?.id;
+    const syncedUserId = useConfigStore.getState().newApiSyncedUserId;
+    if (userId != null && syncedUserId != null && userId !== syncedUserId) return false;
+    return true;
+}
+
+export function rememberSyncedUser() {
+    useConfigStore.setState({ newApiSyncedUserId: useNewApiSessionStore.getState().user?.id ?? null });
 }
 
 function shouldDropUnusedDefault(channel: ModelChannel, hasSynced: boolean) {
@@ -115,7 +130,7 @@ function applyChannels(channels: ModelChannel[], baseUrl: string) {
     }));
 }
 
-function waitForConfigHydration() {
+export function waitForConfigHydration() {
     if (useConfigStore.persist.hasHydrated()) return Promise.resolve();
     return new Promise<void>((resolve) => {
         const unsub = useConfigStore.persist.onFinishHydration(() => {

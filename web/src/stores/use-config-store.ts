@@ -121,6 +121,7 @@ export const defaultWebdavSyncConfig: WebdavSyncConfig = {
 type ConfigStore = {
     config: AiConfig;
     webdav: WebdavSyncConfig;
+    newApiSyncedUserId: number | null;
     isConfigOpen: boolean;
     configTab: ConfigTabKey;
     shouldPromptContinue: boolean;
@@ -194,6 +195,7 @@ export const useConfigStore = create<ConfigStore>()(
         (set, get) => ({
             config: defaultConfig,
             webdav: defaultWebdavSyncConfig,
+            newApiSyncedUserId: null,
             isConfigOpen: false,
             configTab: "channels",
             shouldPromptContinue: false,
@@ -218,7 +220,7 @@ export const useConfigStore = create<ConfigStore>()(
         }),
         {
             name: CONFIG_STORE_KEY,
-            partialize: (state) => ({ config: state.config, webdav: state.webdav }),
+            partialize: (state) => ({ config: state.config, webdav: state.webdav, newApiSyncedUserId: state.newApiSyncedUserId }),
             merge: (persisted, current) => {
                 const persistedState = (persisted || {}) as Partial<ConfigStore>;
                 const persistedConfig = (persistedState.config || {}) as Partial<AiConfig>;
@@ -229,6 +231,7 @@ export const useConfigStore = create<ConfigStore>()(
                 const models = modelOptionsFromChannels(channels);
                 return {
                     ...current,
+                    newApiSyncedUserId: persistedState.newApiSyncedUserId ?? current.newApiSyncedUserId ?? null,
                     webdav: { ...defaultWebdavSyncConfig, ...persistedWebdav },
                     config: {
                         ...config,

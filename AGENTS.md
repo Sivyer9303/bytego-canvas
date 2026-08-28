@@ -93,6 +93,7 @@
 - 当前画布项目和“我的素材”主要保存在浏览器本地，不要在文档中误写成已支持云同步。
 - 当前 AI API Key 存在浏览器本地，并由前端直接请求 OpenAI 兼容接口；涉及安全说明时要写清楚。
 - 同域挂载画布时使用 `/huabu/`，不要用 `/canvas/`：React Router 已占用 `/canvas` 与 `/canvas/:id`。Nginx 用 `root` + `try_files`，不要 `alias` + `try_files`。登录页是 `/sign-in?redirect=/huabu/`。仅当 `BASE_URL` 不是 `/` 或 `VITE_NEWAPI_AUTH=true` 时才强制 new-api 登录；本地 `bun run dev` 保持开放。
+- new-api 登录后若本地已有当前账号的密钥渠道，刷新页面只恢复登录态，不要再全量拉取 Token、密钥和模型；站内密钥或分组变更后由配置页「同步密钥与分组」手动同步。
 - new-api 同步进来的模型用途按令牌 `group` 对照 `web/src/integrations/new-api/group-capabilities.json` 设定，不要用模型名关键词猜测；未写入对照表的分组一律视为文本。增删站内分组时只改这份 JSON。
 - Docker 静态资源路径目前仍是待办项，文档中不要过度承诺生产部署已经完全验证。
 - Agent 对话消息必须同时按 `threadId`、`turnId` 和 `itemId` 归属；实时事件只用于补充未物化的 turn，历史快照成为权威后不得重复合并同一条消息。

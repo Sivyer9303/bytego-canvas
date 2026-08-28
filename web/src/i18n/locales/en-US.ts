@@ -331,10 +331,13 @@ export default {
         darkTheme: "Switch to dark theme",
     },
     newApi: {
-        bootstrapping: "Syncing account…",
-        syncFailed: "Failed to sync API keys. Refresh the page and try again.",
+        bootstrapping: "Signing in…",
+        syncFailed: "Failed to sync API keys. Try again later.",
         noTokens: "This account has no enabled API keys. Create one in the console first.",
         logout: "Sign out",
+        syncKeys: "Sync keys and groups",
+        syncKeysHint: "Cached keys are reused on refresh. Sync here after you add or change tokens and groups in the console.",
+        synced: "Synced {{count}} keys",
     },
     home: {
         promptError: "Failed to load prompts",

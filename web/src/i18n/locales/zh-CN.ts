@@ -331,10 +331,13 @@ export default {
         darkTheme: "切换到深色主题",
     },
     newApi: {
-        bootstrapping: "正在同步账号…",
-        syncFailed: "同步站内密钥失败，请稍后刷新页面",
+        bootstrapping: "正在登录…",
+        syncFailed: "同步站内密钥失败，请稍后重试",
         noTokens: "当前账号没有启用的 API 密钥，请先在控制台创建",
         logout: "退出登录",
+        syncKeys: "同步密钥与分组",
+        syncKeysHint: "本地已有密钥时刷新页面不会重新拉取。站内新增或调整 Token、分组后，点此同步最新密钥、模型列表和用途。",
+        synced: "已同步 {{count}} 个密钥",
     },
     home: {
         promptError: "获取提示词失败",
