@@ -99,13 +99,25 @@ export function hasCachedNewApiChannels() {
     const channels = useConfigStore.getState().config.channels;
     const cached = channels.some((channel) => isNewApiChannelId(channel.id) && channel.apiKey.trim());
     if (!cached) return false;
+    // 只有能确认当前登录用户和缓存归属一致时才复用；拿不到身份或没有归属记录都视为不可信，重新同步。
     const userId = useNewApiSessionStore.getState().user?.id;
     const syncedUserId = useConfigStore.getState().newApiSyncedUserId;
-    if (userId != null && syncedUserId != null && userId !== syncedUserId) return false;
-    return true;
+    return userId != null && syncedUserId != null && userId === syncedUserId;
 }
 
-export function rememberSyncedUser() {
+// 缓存归属不可信时先摘掉站内渠道，保证后续同步失败也不会继续使用上一个账号的密钥。
+export function dropNewApiChannels() {
+    const channels = useConfigStore.getState().config.channels;
+    if (!channels.some((channel) => isNewApiChannelId(channel.id))) return;
+    applyChannels(
+        channels.filter((channel) => !isNewApiChannelId(channel.id)),
+        useConfigStore.getState().config.baseUrl,
+    );
+    useConfigStore.setState({ newApiSyncedUserId: null });
+}
+
+// 记录本次密钥归属的用户；拿不到身份时写 null，下次启动会重新同步而不是复用。
+function rememberSyncedUser() {
     useConfigStore.setState({ newApiSyncedUserId: useNewApiSessionStore.getState().user?.id ?? null });
 }
 

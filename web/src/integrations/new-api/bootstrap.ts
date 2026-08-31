@@ -1,5 +1,5 @@
 import { isNewApiAuthEnabled } from "@/integrations/new-api/enabled";
-import { hasCachedNewApiChannels, rememberSyncedUser, syncNewApiTokensToChannels, waitForConfigHydration } from "@/integrations/new-api/sync-channels";
+import { dropNewApiChannels, hasCachedNewApiChannels, syncNewApiTokensToChannels, waitForConfigHydration } from "@/integrations/new-api/sync-channels";
 import { redirectToNewApiSignIn, refreshNewApiSession } from "@/services/api/new-api";
 import { useNewApiSessionStore } from "@/stores/use-new-api-session-store";
 
@@ -25,10 +25,8 @@ async function runBootstrap(): Promise<NewApiBootstrapResult> {
         return { status: "redirected" };
     }
     await waitForConfigHydration();
-    if (hasCachedNewApiChannels()) {
-        rememberSyncedUser();
-        return { status: "cached" };
-    }
+    if (hasCachedNewApiChannels()) return { status: "cached" };
+    dropNewApiChannels();
     try {
         const synced = await syncNewApiTokensToChannels(session.accessToken);
         return { status: "ready", tokenCount: synced.tokenCount, channelCount: synced.channelCount };
