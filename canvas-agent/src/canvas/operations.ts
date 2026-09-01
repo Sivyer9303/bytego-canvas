@@ -109,6 +109,7 @@ function configNodeOp(id: string, input: Record<string, unknown>, x: number, y: 
             count: input.count,
             seconds: input.seconds,
             vquality: input.vquality,
+            videoGenerationType: input.videoGenerationType,
             generateAudio: input.generateAudio,
             watermark: input.watermark,
             audioVoice: input.audioVoice,

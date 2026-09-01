@@ -5,8 +5,8 @@ bytego 画布当前按 OpenAI Videos 协议调用 `POST /v1/videos`（multipart�
 ## What Changes
 
 - 画布与视频工作台的默认视频生成改为走 new-api 统一入口：创建 `POST /v1/video/generations`，查询 `GET /v1/video/generations/{id}`，下载仍用 `GET /v1/videos/{id}/content`。
-- 请求体改为 JSON，携带 `model`、`prompt`、`generation_type`、画幅、时长、分辨率，以及图片 / 参考视频 / 参考音频等统一字段；不再按渠道类型在画布内写 SilkRoad、Brioi 专用适配。
-- 视频节点和视频工作台补齐统一入口所需的最小参数（至少文生视频 / 图生视频），参考图继续复用现有画布引用。
+- 请求体改为 JSON，携带用户选择的 `generation_type`、画幅、时长、分辨率，以及该玩法允许的图片 / 参考视频 / 参考音频；不再按渠道类型在画布内写 SilkRoad、Brioi 专用适配。
+- 视频设置提供玩法选择；画布节点和工作台共用。参考图继续复用现有画布引用，参考视频/音频继续复用已连接节点。
 - 渠道编辑里已有的模型调用脚本仍可作为单模型覆盖；未写脚本的视频模型走统一入口。
 - 本地 `bun run dev` 不强制 new-api 登录；无脚本的直连 OpenAI 兼容上游若仍只提供 `/v1/videos`，保留回退路径，避免非 new-api 环境完全不可用。
 - 不按模型档案限制参考玩法。多数站内视频模型无 `-ref` 限制；少数模型若拒绝参考，展示上游错误即可。

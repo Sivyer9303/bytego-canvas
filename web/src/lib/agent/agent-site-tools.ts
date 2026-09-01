@@ -5,6 +5,7 @@ import { fetchPrompts } from "@/services/api/prompts";
 import { uploadImage } from "@/services/image-storage";
 import { imageAspectOptions, imageQualityOptions } from "@/components/image-settings-panel";
 import { videoResolutionOptions, videoSecondOptions, videoSizeOptions } from "@/components/video-settings-panel";
+import { VIDEO_GENERATION_MODES, normalizeVideoGenerationType } from "@/lib/video-generation-modes";
 import type { CanvasAgentSnapshot } from "@/lib/canvas/canvas-agent-ops";
 import { useCanvasStore } from "@/stores/canvas/use-canvas-store";
 import { useAssetStore } from "@/stores/use-asset-store";
@@ -195,6 +196,7 @@ function getVideoConfig() {
             size: config.size || "1280x720",
             seconds: config.videoSeconds || "5",
             resolution: config.vquality || "720",
+            generationType: normalizeVideoGenerationType(config.videoGenerationType),
             generateAudio: config.videoGenerateAudio !== "false",
             watermark: config.videoWatermark === "true",
         },
@@ -202,6 +204,7 @@ function getVideoConfig() {
         sizeOptions: videoSizeOptions,
         secondsOptions: videoSecondOptions,
         resolutionOptions: videoResolutionOptions,
+        generationTypeOptions: VIDEO_GENERATION_MODES.map((mode) => ({ value: mode.value, label: i18n.t(`settingsPanels.video.modes.${mode.value}`) })),
     };
 }
 
@@ -224,6 +227,11 @@ function runVideoWorkbench(input: SiteToolInput, navigate: NavigateFunction) {
     if (typeof input.resolution === "string" && input.resolution.trim()) {
         configStore.updateConfig("vquality", input.resolution);
         applied.resolution = input.resolution;
+    }
+    if (typeof input.generationType === "string" && input.generationType.trim()) {
+        const value = normalizeVideoGenerationType(input.generationType);
+        configStore.updateConfig("videoGenerationType", value);
+        applied.generationType = value;
     }
     if (typeof input.generateAudio === "boolean") {
         configStore.updateConfig("videoGenerateAudio", String(input.generateAudio));

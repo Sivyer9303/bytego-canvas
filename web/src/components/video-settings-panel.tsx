@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { ImageSettingsTheme } from "@/components/image-settings-panel";
 import { type CanvasTheme } from "@/lib/canvas-theme";
+import { VIDEO_GENERATION_MODES, normalizeVideoGenerationType } from "@/lib/video-generation-modes";
 import { type AiConfig } from "@/stores/use-config-store";
 
 const resolutionOptions = [
@@ -28,7 +29,7 @@ export const videoSecondOptions = secondOptions.map((value) => String(value));
 
 type VideoSettingsPanelProps = {
     config: AiConfig;
-    onConfigChange: (key: "vquality" | "size" | "videoSeconds" | "videoGenerateAudio" | "videoWatermark", value: string) => void;
+    onConfigChange: (key: "vquality" | "size" | "videoSeconds" | "videoGenerationType" | "videoGenerateAudio" | "videoWatermark", value: string) => void;
     theme: CanvasTheme;
     showTitle?: boolean;
     className?: string;
@@ -37,6 +38,7 @@ type VideoSettingsPanelProps = {
 export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = true, className = "w-[320px] space-y-4 rounded-2xl px-1 py-0.5" }: VideoSettingsPanelProps) {
     const { t } = useTranslation();
     const seconds = config.videoSeconds || "5";
+    const generationType = normalizeVideoGenerationType(config.videoGenerationType);
     const size = normalizeVideoSizeValue(config.size);
     const dimensions = readSizeDimensions(size);
     const resolution = normalizeVideoResolutionValue(config.vquality);
@@ -49,6 +51,16 @@ export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = 
         <ImageSettingsTheme theme={theme}>
             <div className={className} style={{ color: theme.node.text }} onMouseDown={(event) => event.stopPropagation()}>
                 {showTitle ? <div className="text-lg font-semibold">{t("settingsPanels.video.title")}</div> : null}
+                <SettingGroup title={t("settingsPanels.video.generationType")} color={theme.node.muted}>
+                    <div className="grid grid-cols-2 gap-2.5">
+                        {VIDEO_GENERATION_MODES.map((mode) => (
+                            <OptionPill key={mode.value} selected={generationType === mode.value} theme={theme} onClick={() => onConfigChange("videoGenerationType", mode.value)}>
+                                {t(`settingsPanels.video.modes.${mode.value}`)}
+                            </OptionPill>
+                        ))}
+                    </div>
+                    <div className="text-[11px] leading-4 opacity-70">{t(`settingsPanels.video.modeHints.${generationType}`)}</div>
+                </SettingGroup>
                 <SettingGroup title={t("settingsPanels.video.quality")} color={theme.node.muted}>
                     <div className="grid grid-cols-3 gap-2.5">
                         {resolutionOptions.map((item) => (
@@ -115,6 +127,10 @@ export function videoSizeLabel(value: string) {
 export function videoSecondsLabel(value: string) {
     if (String(value).trim() === "-1") return i18n.t("settingsPanels.video.smart");
     return `${value || "5"}s`;
+}
+
+export function videoGenerationTypeLabel(value: string) {
+    return i18n.t(`settingsPanels.video.modes.${normalizeVideoGenerationType(value)}`);
 }
 
 export function normalizeVideoSizeValue(value: string) {

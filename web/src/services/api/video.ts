@@ -5,8 +5,10 @@ import i18n from "@/i18n";
 import { isNewApiAuthEnabled } from "@/integrations/new-api/enabled";
 import { dataUrlToFile } from "@/lib/image-utils";
 import { getMediaBlob, uploadMediaFile, type UploadedFile } from "@/services/file-storage";
-import { imageToDataUrl } from "@/services/image-storage";
+import { getImageBlob, imageToDataUrl } from "@/services/image-storage";
+import { assertVideoGenerationMedia, resolveVideoGenerationMode, videoImageRoleAt } from "@/lib/video-generation-modes";
 import { boolConfig, buildApiUrl, modelOptionName, resolveModelRequestConfig, resolveModelScript, type AiConfig } from "@/stores/use-config-store";
+import { uploadVideoInputAsset, type VideoInputAssetKind } from "./video-input-assets";
 import { runModelPlugin } from "./model-plugin";
 import type { ReferenceImage } from "@/types/image";
 import type { ReferenceAudio, ReferenceVideo } from "@/types/media";
@@ -148,18 +150,27 @@ async function pollNewApiVideoTask(config: AiConfig, task: VideoGenerationTask, 
 }
 
 async function buildUnifiedVideoBody(config: AiConfig, model: string, prompt: string, references: ReferenceImage[], options?: RequestOptions) {
-    const images = (await Promise.all(references.slice(0, 7).map((image) => imageToDataUrl(image)))).filter(Boolean);
-    const videos = (await Promise.all((options?.videos || []).map((video) => mediaSource(video.url, video.storageKey, options?.signal)))).filter(Boolean);
-    const audios = (await Promise.all((options?.audios || []).map((audio) => mediaSource(audio.url, audio.storageKey, options?.signal)))).filter(Boolean);
+    const mode = resolveVideoGenerationMode(config.videoGenerationType);
+    const videosIn = options?.videos || [];
+    const audiosIn = options?.audios || [];
+    assertVideoGenerationMedia(mode, references.length, videosIn.length, audiosIn.length);
+    const imageItems = mode.imagesMax > 0 ? references : [];
+    const videoItems = mode.allowVideo ? videosIn : [];
+    const audioItems = mode.allowAudio ? audiosIn.slice(0, 1) : [];
+    const [images, videos, audios] = await Promise.all([
+        Promise.all(imageItems.map((image) => resolveUnifiedMediaSource(config, "image", image, options))),
+        Promise.all(videoItems.map((video) => resolveUnifiedMediaSource(config, "video", video, options))),
+        Promise.all(audioItems.map((audio) => resolveUnifiedMediaSource(config, "audio", audio, options))),
+    ]);
     const media = [
-        ...images.map((source) => ({ type: "image", role: "reference", source })),
-        ...videos.map((source) => ({ type: "video", role: "reference", source })),
-        ...audios.map((source) => ({ type: "audio", source })),
+        ...images.map((source, index) => ({ type: "image", role: videoImageRoleAt(mode, index), source })),
+        ...videos.map((source) => ({ type: "video", role: "reference" as const, source })),
+        ...audios.map((source) => ({ type: "audio" as const, source })),
     ];
     return {
         model: modelOptionName(model),
         prompt,
-        generation_type: images.length ? "image2video" : "text2video",
+        generation_type: mode.value,
         aspect_ratio: aspectRatioFromSize(config.size),
         seconds: Number(normalizeVideoSeconds(config.videoSeconds)),
         resolution: normalizeVideoResolution(config.vquality),
@@ -336,19 +347,26 @@ function asVideoBlob(blob: Blob) {
     return blob.type.startsWith("video/") ? blob : new Blob([blob], { type: "video/mp4" });
 }
 
-async function mediaSource(url?: string, storageKey?: string, signal?: AbortSignal) {
-    if (url?.startsWith("data:") || isPublicMediaUrl(url || "")) return url || "";
-    const blob = (storageKey ? await getMediaBlob(storageKey) : null) || (url ? await fetch(url, { signal }).then((response) => response.blob()).catch(() => null) : null);
-    return blob ? blobToDataUrl(blob) : "";
+async function resolveUnifiedMediaSource(config: AiConfig, kind: VideoInputAssetKind, item: { url?: string; dataUrl?: string; storageKey?: string; name?: string }, options?: RequestOptions) {
+    const existing = item.dataUrl || item.url || "";
+    if (/^https:\/\//i.test(existing)) return existing;
+    const blob = await loadReferenceBlob(kind, item, options?.signal);
+    if (!blob) throw new Error(apiText("videoInputUploadFailed"));
+    return uploadVideoInputAsset(config, blob, kind, { signal: options?.signal, name: item.name });
 }
 
-function blobToDataUrl(blob: Blob) {
-    return new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ""));
-        reader.onerror = () => reject(new Error(apiText("noPlayableVideo")));
-        reader.readAsDataURL(blob);
-    });
+async function loadReferenceBlob(kind: VideoInputAssetKind, item: { url?: string; dataUrl?: string; storageKey?: string }, signal?: AbortSignal) {
+    if (item.storageKey) {
+        const stored = kind === "image" ? await getImageBlob(item.storageKey) : await getMediaBlob(item.storageKey);
+        if (stored) return stored;
+    }
+    const source = item.dataUrl || item.url || "";
+    if (!source) return null;
+    try {
+        return await (await fetch(source, { signal })).blob();
+    } catch {
+        return null;
+    }
 }
 
 function isSiteVideoContentUrl(value: string) {

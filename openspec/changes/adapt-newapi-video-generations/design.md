@@ -35,7 +35,7 @@ new-api 已把渠道差异收在 `/v1/video/generations`。画布只对接这一
 
 ### 3. JSON 字段对齐视频工具 `buildVideoGenerationRequest`
 
-最小必填：`model`、`prompt`、`generation_type`、`aspect_ratio`，以及 `seconds` 或 `duration`。有参考图时 `generation_type` 用图生视频（无图 `text2video`，有图 `image2video`），`media` 里放 `type: image` 的 data URL 或已上传地址。分辨率沿用现有 `vquality`。不发送 `generate_audio`：Brioi 会把未知字段直接 400。
+最小必填：`model`、`prompt`、`generation_type`、`aspect_ratio`，以及 `seconds` 或 `duration`。`generation_type` 由用户在视频设置中选择，默认 `text2video`。可选玩法与站内视频工具一致：`text2video`、`image2video`、`multi_image`、`start_end`、`reference_audio`、`reference_videos`。提交前按所选玩法校验参考图/视频/音频数量；`start_end` 的两张图按顺序写入 `first_frame` / `last_frame`。数量不符时返回错误，不得按素材自动改玩法。不根据 `/api/video/models` 或 `-ref` 后缀改玩法。`media.source` 必须是 `/v1/video/input-assets` 上传后的 HTTPS 地址，不把 data URL 放进生成请求体。分辨率沿用现有 `vquality`。不发送 `generate_audio`：Brioi 会把未知字段直接 400。
 
 画布已连接的参考视频 / 音频有则写入 `media`，没有则不发，不做新上传器。画幅/时长用现有控件做近似映射（如 `1280x720` → `16:9`）。
 
@@ -55,7 +55,7 @@ new-api 已把渠道差异收在 `/v1/video/generations`。画布只对接这一
 ## Migration Plan
 
 1. 改 `video.ts` 增加统一入口客户端，new-api 模式下切换 create/poll。
-2. 画布视频节点与视频工作台补 `generation_type` 默认规则（有参考图则图生）。
+2. 画布视频节点与视频工作台提供玩法选择，并按所选 `generation_type` 组装 `media`。
 3. 用 new-api 视频分组 Token 实测文生/图生；本地 `bun run dev` 回归 `/v1/videos`。
 4. 回滚：还原画布前端即可，new-api 无数据迁移。
 
