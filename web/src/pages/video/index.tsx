@@ -316,7 +316,7 @@ export default function VideoPage() {
             for (let attempt = 0; attempt < 120; attempt += 1) {
                 const state = await pollVideoGenerationTask(configOverride || taskConfig, log.task);
                 if (state.status === "completed") {
-                    const stored = await storeGeneratedVideo(state.result);
+                    const stored = await storeGeneratedVideo(state.result, taskConfig);
                     const nextVideo: GeneratedVideo = {
                         id: nanoid(),
                         url: stored.url,
@@ -780,8 +780,8 @@ function buildVideoConfig(config: AiConfig, model: string): AiConfig {
 
 function normalizeVideoSeconds(value: string) {
     if (String(value).trim() === "-1") return "-1";
-    const seconds = Math.floor(Number(value) || 6);
-    return String(Math.max(1, Math.min(20, seconds)));
+    const seconds = Math.floor(Number(value) || 5);
+    return String(Math.max(1, Math.min(30, seconds)));
 }
 
 function normalizeVideoSize(value: string) {

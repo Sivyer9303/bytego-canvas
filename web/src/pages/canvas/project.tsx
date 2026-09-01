@@ -2357,6 +2357,8 @@ function InfiniteCanvasPage() {
                                 videos: generationContext.referenceVideos,
                                 audios: generationContext.referenceAudios,
                             }),
+                            generationConfig,
+                            { signal: controller.signal },
                         );
                         const videoSize = fitNodeSize(video.width || spec.width, video.height || spec.height, VIDEO_NODE_MAX_WIDTH, VIDEO_NODE_MAX_HEIGHT);
                         setNodes((prev) =>
@@ -2617,6 +2619,8 @@ function InfiniteCanvasPage() {
                             videos: context?.referenceVideos,
                             audios: context?.referenceAudios,
                         }),
+                        generationConfig,
+                        { signal: controller.signal },
                     );
                     const videoSize = fitNodeSize(video.width || node.width, video.height || node.height, VIDEO_NODE_MAX_WIDTH, VIDEO_NODE_MAX_HEIGHT);
                     setNodes((prev) =>

@@ -108,16 +108,8 @@ function videoPluginResult(result: unknown): VideoGenerationResult {
     throw new Error(apiText("scriptNoVideo"));
 }
 
-export async function storeGeneratedVideo(result: VideoGenerationResult): Promise<UploadedFile> {
-    if (result.blob) return uploadMediaFile(result.blob, "video");
-    if (result.url) {
-        try {
-            return await uploadMediaFile(result.url, "video");
-        } catch {
-            return { url: result.url, storageKey: "", bytes: 0, mimeType: result.mimeType || "video/mp4" };
-        }
-    }
-    throw new Error(apiText("noPlayableVideo"));
+export async function storeGeneratedVideo(result: VideoGenerationResult, config?: AiConfig, options?: RequestOptions): Promise<UploadedFile> {
+    return uploadMediaFile(await materializeVideoBlob(config, result, options), "video");
 }
 
 async function createNewApiVideoTask(config: AiConfig, model: string, prompt: string, references: ReferenceImage[], options?: RequestOptions): Promise<VideoGenerationTask> {
@@ -139,10 +131,14 @@ async function pollNewApiVideoTask(config: AiConfig, task: VideoGenerationTask, 
         const completed = ["completed", "succeeded", "success"].includes(status);
         if (completed) {
             const url = videoResultUrl(video);
-            if (url) return { status: "completed", result: await videoResultFromResolvedUrl(config, url, options) };
-            const content = await axios.get<Blob>(aiApiUrl(config, `/videos/${task.id}/content`), { headers: aiHeaders(config), responseType: "blob", signal: options?.signal });
-            await assertVideoBlob(content.data);
-            return { status: "completed", result: { blob: content.data } };
+            if (url) {
+                try {
+                    return { status: "completed", result: { blob: await materializeVideoBlob(config, { url }, options) } };
+                } catch (error) {
+                    if (axios.isCancel(error) || options?.signal?.aborted) throw error;
+                }
+            }
+            return { status: "completed", result: { blob: await materializeVideoBlob(config, { url: aiApiUrl(config, `/videos/${task.id}/content`) }, options) } };
         }
         if (failed) return { status: "failed", error: readApiErrorMessage(video.fail_reason) || readApiErrorMessage(video.error?.message) || apiText("videoGenerationFailed") };
         return { status: "pending" };
@@ -195,27 +191,14 @@ async function pollOpenAIVideoTask(config: AiConfig, task: VideoGenerationTask, 
     try {
         const video = unwrapVideoResponse((await axios.get<ApiVideoResponse>(aiApiUrl(config, `/videos/${task.id}`), { headers: aiHeaders(config), signal: options?.signal })).data);
         const url = videoResultUrl(video);
-        if (url) return { status: "completed", result: await videoResultFromUrl(url, options) };
+        if (url) return { status: "completed", result: { blob: await materializeVideoBlob(config, { url }, options) } };
         if (video.status === "completed") {
-            const content = await axios.get<Blob>(aiApiUrl(config, `/videos/${task.id}/content`), { headers: aiHeaders(config), responseType: "blob", signal: options?.signal });
-            await assertVideoBlob(content.data);
-            return { status: "completed", result: { blob: content.data } };
+            return { status: "completed", result: { blob: await materializeVideoBlob(config, { url: aiApiUrl(config, `/videos/${task.id}/content`) }, options) } };
         }
         if (video.status === "failed" || video.status === "cancelled") return { status: "failed", error: readApiErrorMessage(video.error?.message) || apiText("videoGenerationFailed") };
         return { status: "pending" };
     } catch (error) {
         throw new Error(readAxiosError(error, apiText("videoTaskQueryFailed")));
-    }
-}
-
-async function videoResultFromUrl(url: string, options?: RequestOptions): Promise<VideoGenerationResult> {
-    try {
-        const response = await axios.get<Blob>(url, { responseType: "blob", signal: options?.signal });
-        await assertVideoBlob(response.data);
-        return { blob: response.data };
-    } catch (error) {
-        if (axios.isCancel(error) || options?.signal?.aborted) throw error;
-        return { url, mimeType: "video/mp4" };
     }
 }
 
@@ -242,8 +225,8 @@ function videoTaskId(payload: VideoResponse) {
 }
 
 function normalizeVideoSeconds(value: string) {
-    const seconds = Math.floor(Number(value) || 6);
-    return String(Math.max(1, Math.min(20, seconds)));
+    const seconds = Math.floor(Number(value) || 5);
+    return String(Math.max(1, Math.min(30, seconds)));
 }
 
 function normalizeVideoSize(value: string) {
@@ -282,14 +265,75 @@ function videoResultUrl(payload: VideoResponse) {
     return [payload.video_url, payload.result_url, payload.url, payload.content?.video_url, payload.content?.url].find((url) => typeof url === "string" && (isPublicMediaUrl(url) || isSiteVideoContentUrl(url) || /\.mp4(\?|#|$)/i.test(url)));
 }
 
-async function videoResultFromResolvedUrl(config: AiConfig, url: string, options?: RequestOptions): Promise<VideoGenerationResult> {
-    if (isSiteVideoContentUrl(url)) {
-        const path = url.replace(/^https?:\/\/[^/]+/i, "").replace(/^\/v1/, "");
-        const content = await axios.get<Blob>(aiApiUrl(config, path.startsWith("/") ? path : `/${path}`), { headers: aiHeaders(config), responseType: "blob", signal: options?.signal });
-        await assertVideoBlob(content.data);
-        return { blob: content.data };
+async function materializeVideoBlob(config: AiConfig | undefined, result: VideoGenerationResult, options?: RequestOptions, depth = 0): Promise<Blob> {
+    if (depth > 3) throw new Error(apiText("videoDownloadFailed"));
+    if (result.blob) {
+        const nestedUrl = await nestedVideoUrlFromBlob(result.blob);
+        if (nestedUrl) return materializeVideoBlob(config, { url: nestedUrl }, options, depth + 1);
+        try {
+            await assertVideoBlob(result.blob);
+            return asVideoBlob(result.blob);
+        } catch (error) {
+            if (result.url) return materializeVideoBlob(config, { url: result.url }, options, depth + 1);
+            throw error;
+        }
     }
-    return videoResultFromUrl(url, options);
+    if (!result.url) throw new Error(apiText("noPlayableVideo"));
+    return materializeVideoBlob(config, { blob: await fetchVideoBytes(config, result.url, options) }, options, depth + 1);
+}
+
+async function fetchVideoBytes(config: AiConfig | undefined, url: string, options?: RequestOptions) {
+    try {
+        const useAuth = shouldAuthVideoUrl(config, url);
+        const requestUrl = useAuth && config ? apiVideoRequestUrl(config, url) : url;
+        const response = await axios.get<Blob>(requestUrl, { headers: useAuth && config ? aiHeaders(config) : undefined, responseType: "blob", signal: options?.signal });
+        return response.data;
+    } catch (error) {
+        if (axios.isCancel(error) || options?.signal?.aborted) throw error;
+        throw new Error(readAxiosError(error, apiText("videoDownloadFailed")));
+    }
+}
+
+function shouldAuthVideoUrl(config: AiConfig | undefined, url: string) {
+    if (!config) return false;
+    if (isSiteVideoContentUrl(url) || url.startsWith("/")) return true;
+    try {
+        const base = new URL(config.baseUrl || "/", typeof window === "undefined" ? "http://localhost" : window.location.href);
+        const target = new URL(url, base);
+        return target.origin === base.origin && /\/videos\/[^/]+\/content/.test(target.pathname);
+    } catch {
+        return false;
+    }
+}
+
+function apiVideoRequestUrl(config: AiConfig, url: string) {
+    const path = url.replace(/^https?:\/\/[^/]+/i, "").replace(/^\/v1/, "");
+    return aiApiUrl(config, path.startsWith("/") ? path : `/${path}`);
+}
+
+async function nestedVideoUrlFromBlob(blob: Blob) {
+    if (blob.size > 64_000) return;
+    const type = blob.type.toLowerCase();
+    if (type.startsWith("video/")) return;
+    const text = await blob.text();
+    const trimmed = text.trimStart();
+    if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return;
+    try {
+        return nestedVideoUrlFromUnknown(JSON.parse(text));
+    } catch {
+        return;
+    }
+}
+
+function nestedVideoUrlFromUnknown(value: unknown): string | undefined {
+    if (typeof value === "string" && (isPublicMediaUrl(value) || isSiteVideoContentUrl(value) || /\.mp4(\?|#|$)/i.test(value))) return value;
+    if (!value || typeof value !== "object") return;
+    const record = value as VideoResponse & { data?: unknown };
+    return videoResultUrl(record) || nestedVideoUrlFromUnknown(record.data);
+}
+
+function asVideoBlob(blob: Blob) {
+    return blob.type.startsWith("video/") ? blob : new Blob([blob], { type: "video/mp4" });
 }
 
 async function mediaSource(url?: string, storageKey?: string, signal?: AbortSignal) {
@@ -358,15 +402,25 @@ function statusMessage(status: number | undefined, fallback: string) {
 }
 
 async function assertVideoBlob(blob: Blob) {
-    if (!blob.type.includes("json")) return;
-    let payload: { code?: number; msg?: string; error?: { message?: string } };
-    try {
-        payload = JSON.parse(await blob.text()) as { code?: number; msg?: string; error?: { message?: string } };
-    } catch {
-        return;
+    const type = blob.type.toLowerCase();
+    const head = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
+    if (head[0] === 0x7b || head[0] === 0x5b || head[0] === 0x3c || type.includes("json") || type.includes("text") || type.includes("html")) {
+        throw new Error((await jsonVideoError(blob)) || apiText("videoDownloadFailed"));
     }
-    if (typeof payload.code === "number" && payload.code !== 0) throw new Error(readApiErrorMessage(payload) || apiText("videoDownloadFailed"));
-    if (payload.error?.message) throw new Error(readApiErrorMessage(payload.error.message) || payload.error.message);
+    const isMp4 = head[4] === 0x66 && head[5] === 0x74 && head[6] === 0x79 && head[7] === 0x70;
+    const isWebm = head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3;
+    if (isMp4 || isWebm || (type.startsWith("video/") && blob.size > 1024)) return;
+    if (blob.size < 1024) throw new Error(apiText("videoDownloadFailed"));
+    if (!type || type.includes("octet-stream")) return;
+    throw new Error(apiText("videoDownloadFailed"));
+}
+
+async function jsonVideoError(blob: Blob) {
+    try {
+        return readApiErrorMessage(JSON.parse(await blob.text()));
+    } catch {
+        return "";
+    }
 }
 
 function isPublicMediaUrl(value: string) {
